@@ -21,6 +21,11 @@ export default tseslint.config(
     plugins: {
       import: importPlugin,
     },
+    settings: {
+      'import/resolver': {
+        typescript: true,
+      },
+    },
     rules: {
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/require-await': 'off',

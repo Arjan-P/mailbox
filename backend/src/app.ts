@@ -1,17 +1,20 @@
-import { join } from 'node:path'
-import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload'
-import { FastifyPluginAsync, FastifyServerOptions } from 'fastify'
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload';
+import { FastifyPluginAsync, FastifyServerOptions } from 'fastify';
 
-export interface AppOptions extends FastifyServerOptions, Partial<AutoloadPluginOptions> {
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-}
+export interface AppOptions
+  extends FastifyServerOptions,
+    Partial<AutoloadPluginOptions> {}
 // Pass --options via CLI arguments in command to enable these options.
-const options: AppOptions = {
-}
+const options: AppOptions = {};
 
 const app: FastifyPluginAsync<AppOptions> = async (
   fastify,
-  opts
+  opts,
 ): Promise<void> => {
   // Place here your custom code!
 
@@ -23,17 +26,17 @@ const app: FastifyPluginAsync<AppOptions> = async (
   // eslint-disable-next-line no-void
   void fastify.register(AutoLoad, {
     dir: join(__dirname, 'plugins'),
-    options: opts
-  })
+    options: opts,
+  });
 
   // This loads all plugins defined in routes
   // define your routes in one of these
   // eslint-disable-next-line no-void
   void fastify.register(AutoLoad, {
     dir: join(__dirname, 'routes'),
-    options: opts
-  })
-}
+    options: opts,
+  });
+};
 
-export default app
-export { app, options }
+export default app;
+export { app, options };
