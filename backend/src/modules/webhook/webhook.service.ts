@@ -3,7 +3,7 @@ import { getQueue } from '../../queue/queue.factory.js';
 import { webhookRegistry } from './webhook.registry.js';
 import type { Service } from './webhook.types.js';
 
-export async function handleWebhook<S extends Service>(
+async function handleWebhook<S extends Service>(
   req: FastifyRequest,
   service: S,
 ) {
@@ -15,3 +15,7 @@ export async function handleWebhook<S extends Service>(
 
   await queue.add(adapter.queueName, event);
 }
+
+export const WebhookService = {
+  handleWebhook,
+};

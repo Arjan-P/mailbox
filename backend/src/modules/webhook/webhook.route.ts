@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { ZodTypeProvider } from '@fastify/type-provider-zod';
 
-import { webhookPost } from './webhook.controller.js';
+import { WebhookController } from './webhook.controller.js';
 import { webhookServiceSchema } from './webhook.schema.js';
 import { successResponse, errorResponse } from '../common/response.schema.js';
 import { z } from 'zod';
@@ -29,7 +29,7 @@ const webhookRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    webhookPost,
+    WebhookController.webhookPost,
   );
 };
 
