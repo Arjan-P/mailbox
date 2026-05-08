@@ -14,11 +14,19 @@ export const envSchema = z.object({
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
 
+  COOKIE_SECRET: z.string(),
+
   CLERK_PUBLISHABLE_KEY: z.string(),
 
   CLERK_SECRET_KEY: z.string(),
 
   CLERK_WEBHOOK_SECRET: z.string(),
+
+  GOOGLE_CLIENT_ID: z.string(),
+
+  GOOGLE_CLIENT_SECRET: z.string(),
+
+  GOOGLE_CALLBACK_URL: z.string(),
 
   // SESSION_SECRET: z.string()
 });

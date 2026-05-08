@@ -14,9 +14,25 @@ datasource db {
 }
 
 model User {
-  id String @id
-  emailAddress String @unique
-  firstName String?
-  lastName String?
-  imageUrl String?
+  id             String @id
+  emailAddress   String @unique
+  firstName      String?
+  lastName       String?
+  imageUrl       String?
+
+  googleAccount  GoogleAccount?
+}
+
+model GoogleAccount {
+  id            String   @id @default(cuid())
+
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessToken   String   @db.Text
+  refreshToken  String   @db.Text
+  expiryDate    DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
