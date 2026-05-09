@@ -1,3 +1,4 @@
+import { ApiProvider } from "@/lib/api-provider";
 import { ClerkProvider } from "@clerk/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -10,7 +11,9 @@ const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <ApiProvider>{children}</ApiProvider>
+      </QueryClientProvider>
     </ClerkProvider>
   );
 }

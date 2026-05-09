@@ -1,8 +1,10 @@
 import { createBrowserRouter } from "react-router-dom";
 
-import { DashboardPage } from "../pages/dashboard";
-import { HomePage } from "../pages/home";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ProtectedLayout } from "@/components/layout/protected-layout";
+
+import { DashboardPage } from "@/pages/dashboard";
+import { HomePage } from "@/pages/home";
 
 export const router = createBrowserRouter([
   {
@@ -12,10 +14,17 @@ export const router = createBrowserRouter([
 
   {
     element: <ProtectedLayout />,
+
     children: [
       {
-        path: "/dashboard",
-        element: <DashboardPage />,
+        element: <DashboardLayout />,
+
+        children: [
+          {
+            path: "/dashboard",
+            element: <DashboardPage />,
+          },
+        ],
       },
     ],
   },

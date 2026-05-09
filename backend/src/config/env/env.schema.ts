@@ -14,6 +14,8 @@ export const envSchema = z.object({
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),
 
+  FRONTEND_URL: z.string(),
+
   COOKIE_SECRET: z.string(),
 
   CLERK_PUBLISHABLE_KEY: z.string(),

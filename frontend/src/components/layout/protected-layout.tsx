@@ -1,16 +1,28 @@
-import { RedirectToSignIn, Show } from "@clerk/react";
+import {
+  ClerkLoaded,
+  ClerkLoading,
+  RedirectToSignIn,
+  Show,
+} from "@clerk/react";
+
 import { Outlet } from "react-router-dom";
 
 export function ProtectedLayout() {
   return (
     <>
-      <Show when="signed-out">
-        <RedirectToSignIn />
-      </Show>
+      <ClerkLoading>
+        <div>Loading...</div>
+      </ClerkLoading>
 
-      <Show when="signed-in">
-        <Outlet />
-      </Show>
+      <ClerkLoaded>
+        <Show when="signed-out">
+          <RedirectToSignIn />
+        </Show>
+
+        <Show when="signed-in">
+          <Outlet />
+        </Show>
+      </ClerkLoaded>
     </>
   );
 }

@@ -25,6 +25,28 @@ export async function createGmailClient(userId: string) {
     refresh_token: account.refreshToken,
   });
 
+  oauth2Client.on('tokens', (tokens) => {
+    void prisma.googleAccount.update({
+      where: {
+        userId,
+      },
+
+      data: {
+        ...(tokens.access_token && {
+          accessToken: tokens.access_token,
+        }),
+
+        ...(tokens.refresh_token && {
+          refreshToken: tokens.refresh_token,
+        }),
+
+        ...(tokens.expiry_date && {
+          expiryDate: new Date(tokens.expiry_date),
+        }),
+      },
+    });
+  });
+
   return google.gmail({
     version: 'v1',
     auth: oauth2Client,
