@@ -1,6 +1,11 @@
 import { api } from "@/lib/axios";
 import type { SuccessResponse } from "@/types/api";
-import type { GmailMessages, GmailMessagesQuery, GmailProfile } from "./types";
+import type {
+  GmailMessageDetail,
+  GmailMessages,
+  GmailMessagesQuery,
+  GmailProfile,
+} from "./types";
 
 export async function getProfile() {
   const res =
@@ -15,6 +20,14 @@ export async function getMessages(query?: GmailMessagesQuery) {
     {
       params: query,
     },
+  );
+
+  return res.data.data;
+}
+
+export async function getMessage(id: string) {
+  const res = await api.get<SuccessResponse<GmailMessageDetail>>(
+    `/api/gmail/messages/${id}`,
   );
 
   return res.data.data;

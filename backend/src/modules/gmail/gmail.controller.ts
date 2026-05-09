@@ -30,7 +30,6 @@ async function handleCallback(req: FastifyRequest, reply: FastifyReply) {
   });
 
   return reply.redirect(`${env.FRONTEND_URL}/dashboard?gmail=connected`);
-  return ok({ received: true as const });
 }
 
 async function getProfile(req: FastifyRequest) {
@@ -61,8 +60,27 @@ async function getMessages(
   return ok(messages);
 }
 
+async function getMessage(
+  req: FastifyRequest<{
+    Params: {
+      id: string;
+    };
+  }>,
+) {
+  const { userId, isAuthenticated } = getAuth(req);
+
+  if (!isAuthenticated) {
+    throw new AuthenticationError();
+  }
+
+  const message = await GmailService.getMessage(userId, req.params.id);
+
+  return ok(message);
+}
+
 export const GmailController = {
   handleCallback,
   getProfile,
   getMessages,
+  getMessage,
 };

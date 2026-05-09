@@ -16,21 +16,33 @@ export const gmailProfileSchema = z.object({
 export type GmailProfile = z.infer<typeof gmailProfileSchema>;
 
 /**
- * Gmail message summary
+ * Mail list item
  */
-export const gmailMessageSchema = z.object({
+export const gmailMailItemSchema = z.object({
   id: z.string(),
 
   threadId: z.string(),
+
+  subject: z.string(),
+
+  from: z.string(),
+
+  snippet: z.string(),
+
+  date: z.string(),
+
+  unread: z.boolean(),
+
+  labels: z.array(z.string()),
 });
 
-export type GmailMessage = z.infer<typeof gmailMessageSchema>;
+export type GmailMailItem = z.infer<typeof gmailMailItemSchema>;
 
 /**
  * Gmail messages list
  */
 export const gmailMessagesSchema = z.object({
-  messages: z.array(gmailMessageSchema),
+  messages: z.array(gmailMailItemSchema),
 
   nextPageToken: z.string().optional(),
 
@@ -38,6 +50,35 @@ export const gmailMessagesSchema = z.object({
 });
 
 export type GmailMessages = z.infer<typeof gmailMessagesSchema>;
+
+/**
+ * Gmail message detail
+ */
+export const gmailMessageDetailSchema = z.object({
+  id: z.string(),
+
+  threadId: z.string(),
+
+  subject: z.string(),
+
+  from: z.string(),
+
+  to: z.array(z.string()),
+
+  cc: z.array(z.string()),
+
+  snippet: z.string(),
+
+  body: z.string(),
+
+  date: z.string(),
+
+  unread: z.boolean(),
+
+  labels: z.array(z.string()),
+});
+
+export type GmailMessageDetail = z.infer<typeof gmailMessageDetailSchema>;
 
 /**
  * Query params

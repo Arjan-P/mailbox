@@ -4,16 +4,16 @@ import { UserButton } from "@clerk/react";
 
 export function DashboardLayout() {
   return (
-    <main className="min-h-screen">
-      <header className="border-b p-4 flex justify-between">
-        <h1 className="font-bold">Mail Dashboard</h1>
+    <main className="h-screen overflow-hidden">
+      <header className="flex h-14 items-center justify-between border-b px-4">
+        <h1 className="font-semibold">Mail Dashboard</h1>
 
         <UserButton />
       </header>
 
-      <div className="p-6">
+      <section className="h-[calc(100vh-56px)]">
         <Outlet />
-      </div>
+      </section>
     </main>
   );
 }

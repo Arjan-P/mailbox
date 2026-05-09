@@ -3,6 +3,7 @@ import { ZodTypeProvider } from '@fastify/type-provider-zod';
 import { GmailController } from './gmail.controller.js';
 import { errorResponse, successResponse } from '../common/response.schema.js';
 import {
+  gmailMessageDetailSchema,
   gmailMessagesQuerySchema,
   gmailMessagesSchema,
   gmailProfileSchema,
@@ -50,6 +51,23 @@ const gmailRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     GmailController.getMessages,
+  );
+  app.get(
+    '/messages/:id',
+    {
+      schema: {
+        params: z.object({
+          id: z.string(),
+        }),
+
+        response: {
+          200: successResponse(gmailMessageDetailSchema),
+          401: errorResponse,
+          500: errorResponse,
+        },
+      },
+    },
+    GmailController.getMessage,
   );
 };
 

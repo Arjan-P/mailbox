@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { getMessages, getProfile } from "./api";
+import { getMessage, getMessages, getProfile } from "./api";
 import { useAuth } from "@clerk/react";
 import type { GmailMessagesQuery } from "./types";
 
@@ -18,5 +18,15 @@ export function useMessages(query?: GmailMessagesQuery) {
   return useQuery({
     queryKey: ["gmail-messages", query],
     queryFn: () => getMessages(query),
+  });
+}
+
+export function useMessage(id: string | null) {
+  return useQuery({
+    queryKey: ["gmail-message", id],
+
+    queryFn: () => getMessage(id!),
+
+    enabled: !!id,
   });
 }
