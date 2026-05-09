@@ -1,3 +1,4 @@
+import { ThemeProvider } from "@/components/theme-provider";
 import { ApiProvider } from "@/lib/api-provider";
 import { ClerkProvider } from "@clerk/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,7 +13,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
       <QueryClientProvider client={queryClient}>
-        <ApiProvider>{children}</ApiProvider>
+        <ThemeProvider>
+          <ApiProvider>{children}</ApiProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ClerkProvider>
   );
