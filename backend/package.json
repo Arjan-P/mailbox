@@ -9,12 +9,12 @@
   },
   "scripts": {
     "test": "npm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
-    "start": "npm run build:ts && fastify start -l info dist/app.js",
     "build:ts": "tsc",
     "watch:ts": "tsc -w",
+    "start": "npm run build:ts && node dist/server.js",
     "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
-    "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P dist/app.js",
-    "start:worker": "node ./dist/workers/clerk.worker.js"
+    "dev:start": "node --watch dist/server.js",
+    "start:worker": "node dist/workers/clerk.worker.js"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +32,7 @@
     "dotenv": "^17.4.2",
     "fastify": "^5.0.0",
     "fastify-cli": "^8.0.0",
+    "fastify-metrics": "^13.2.0",
     "fastify-plugin": "^5.0.0",
     "fastify-raw-body": "^5.0.0",
     "googleapis": "^171.4.0",
