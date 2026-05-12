@@ -86,7 +86,7 @@ export async function createGmailClient(
           }),
         },
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         // Log but don't throw — the request can still succeed this time,
         // but ops should know persistence is broken
         log.error({ userId, err }, '[gmail] Failed to persist refreshed token');
