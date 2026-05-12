@@ -13,6 +13,11 @@ services:
         REDIS_PORT: 6379
         DATABASE_URL: postgresql://postgres:postgres@db:5432/mailbox_db
         OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      dns:
+      - 8.8.8.8
+      - 1.1.1.1
+      dns_opt:
+        - ndots:1
       depends_on:
         - db
         - redis

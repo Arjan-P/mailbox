@@ -1,4 +1,5 @@
 import { prisma } from '../../config/prisma.js';
+import { redis } from '../../config/redis.js';
 import { createGmailClient } from './gmail.client.js';
 import {
   GmailMessageDetail,
@@ -7,6 +8,12 @@ import {
   GmailProfile,
 } from './gmail.schema.js';
 import { extractMessageBody } from './gmail.utils.js';
+
+const MESSAGES_CACHE_TTL = 60; // seconds
+
+function messagesCacheKey(userId: string, query: GmailMessagesQuery) {
+  return `gmail_messages:${userId}:${query.maxResults ?? 20}:${query.pageToken ?? ''}`;
+}
 
 async function connectGoogleAccount(
   userId: string,
@@ -63,16 +70,18 @@ async function listMessages(
   userId: string,
   query: GmailMessagesQuery,
 ): Promise<GmailMessages> {
+  const cacheKey = messagesCacheKey(userId, query);
+  const cached = await redis.get(cacheKey);
+  if (cached) return JSON.parse(cached) as GmailMessages;
+
   const gmail = await createGmailClient(userId);
 
   const list = await gmail.users.messages.list({
     userId: 'me',
-
     maxResults: query.maxResults ?? 20,
-
     pageToken: query.pageToken,
-
-    fields: 'messages(id,threadId),nextPageToken,resultSizeEstimate',
+    // threadId is never used by the client — drop it
+    fields: 'messages(id),nextPageToken,resultSizeEstimate',
   });
 
   const messageIds = list.data.messages ?? [];
@@ -81,50 +90,43 @@ async function listMessages(
     messageIds.map(async (message) => {
       const full = await gmail.users.messages.get({
         userId: 'me',
-
         id: message.id!,
-
         format: 'metadata',
-
         metadataHeaders: ['From', 'Subject'],
+        // internalDate and labelIds aren't in the metadata payload headers,
+        // they're top-level fields — include them explicitly
+        fields: 'id,threadId,snippet,internalDate,labelIds,payload/headers',
       });
 
       const headers = full.data.payload?.headers ?? [];
-
       const getHeader = (name: string) =>
-        headers.find(
-          (header) => header.name?.toLowerCase() === name.toLowerCase(),
-        )?.value ?? '';
+        headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())
+          ?.value ?? '';
 
       return {
         id: full.data.id ?? '',
-
         threadId: full.data.threadId ?? '',
-
         subject: getHeader('Subject'),
-
         from: getHeader('From'),
-
         snippet: full.data.snippet ?? '',
-
         date: full.data.internalDate
           ? new Date(Number(full.data.internalDate)).toISOString()
           : new Date().toISOString(),
-
         unread: full.data.labelIds?.includes('UNREAD') ?? false,
-
         labels: full.data.labelIds ?? [],
       };
     }),
   );
 
-  return {
+  const result: GmailMessages = {
     messages,
-
     nextPageToken: list.data.nextPageToken ?? undefined,
-
     resultSizeEstimate: list.data.resultSizeEstimate ?? undefined,
   };
+
+  await redis.set(cacheKey, JSON.stringify(result), 'EX', MESSAGES_CACHE_TTL);
+
+  return result;
 }
 
 async function getMessage(
@@ -137,45 +139,35 @@ async function getMessage(
     userId: 'me',
     id,
     format: 'full',
+    fields:
+      'id,threadId,snippet,internalDate,labelIds,payload(headers,body,parts)',
   });
 
   const payload = message.data.payload;
-
   const headers = payload?.headers ?? [];
-
   const getHeader = (name: string) =>
-    headers.find((header) => header.name?.toLowerCase() === name.toLowerCase())
-      ?.value ?? '';
+    headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ??
+    '';
 
   return {
     id: message.data.id ?? '',
-
     threadId: message.data.threadId ?? '',
-
     subject: getHeader('Subject'),
-
     from: getHeader('From'),
-
     to: getHeader('To')
       .split(',')
       .map((v) => v.trim())
       .filter(Boolean),
-
     cc: getHeader('Cc')
       .split(',')
       .map((v) => v.trim())
       .filter(Boolean),
-
     snippet: message.data.snippet ?? '',
-
     body: extractMessageBody(payload),
-
     date: message.data.internalDate
       ? new Date(Number(message.data.internalDate)).toISOString()
       : new Date().toISOString(),
-
     unread: message.data.labelIds?.includes('UNREAD') ?? false,
-
     labels: message.data.labelIds ?? [],
   };
 }
