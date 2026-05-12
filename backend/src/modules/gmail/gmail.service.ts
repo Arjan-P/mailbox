@@ -1,3 +1,4 @@
+import { FastifyBaseLogger } from 'fastify';
 import { prisma } from '../../config/prisma.js';
 import { redis } from '../../config/redis.js';
 import {
@@ -53,12 +54,15 @@ async function connectGoogleAccount(
   await redis.del(profileCacheKey(userId));
 }
 
-async function getProfile(userId: string): Promise<GmailProfile> {
+async function getProfile(
+  userId: string,
+  log: FastifyBaseLogger,
+): Promise<GmailProfile> {
   const cacheKey = profileCacheKey(userId);
   const cached = await redis.get(cacheKey);
   if (cached) return JSON.parse(cached) as GmailProfile;
 
-  const gmail = await createGmailClient(userId);
+  const gmail = await createGmailClient(userId, log);
 
   const profile = await gmail.users.getProfile({
     userId: 'me',
@@ -83,12 +87,13 @@ async function getProfile(userId: string): Promise<GmailProfile> {
 async function listMessages(
   userId: string,
   query: GmailMessagesQuery,
+  log: FastifyBaseLogger,
 ): Promise<GmailMessages> {
   const cacheKey = messagesCacheKey(userId, query);
   const cached = await redis.get(cacheKey);
   if (cached) return JSON.parse(cached) as GmailMessages;
 
-  const gmail = await createGmailClient(userId);
+  const gmail = await createGmailClient(userId, log);
 
   const list = await gmail.users.messages.list({
     userId: 'me',
@@ -151,8 +156,9 @@ async function listMessages(
 async function getMessage(
   userId: string,
   id: string,
+  log: FastifyBaseLogger,
 ): Promise<GmailMessageDetail> {
-  const gmail = await createGmailClient(userId);
+  const gmail = await createGmailClient(userId, log);
 
   const message = await gmail.users.messages.get({
     userId: 'me',

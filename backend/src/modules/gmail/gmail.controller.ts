@@ -38,7 +38,7 @@ async function getProfile(req: FastifyRequest) {
     throw new AuthenticationError();
   }
 
-  const profile = await GmailService.getProfile(userId);
+  const profile = await GmailService.getProfile(userId, req.log);
 
   return ok(profile);
 }
@@ -54,7 +54,7 @@ async function getMessages(
     throw new AuthenticationError();
   }
 
-  const messages = await GmailService.listMessages(userId, req.query);
+  const messages = await GmailService.listMessages(userId, req.query, req.log);
 
   return ok(messages);
 }
@@ -72,7 +72,7 @@ async function getMessage(
     throw new AuthenticationError();
   }
 
-  const message = await GmailService.getMessage(userId, req.params.id);
+  const message = await GmailService.getMessage(userId, req.params.id, req.log);
 
   return ok(message);
 }
