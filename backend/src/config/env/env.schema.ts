@@ -16,6 +16,16 @@ export const envSchema = z.object({
 
   FRONTEND_URL: z.string(),
 
+  DATABASE_URL: z.string(),
+
+  REDIS_HOST: z.string(),
+  REDIS_PORT: z
+    .string()
+    .transform(Number)
+    .refine((val) => !isNaN(val), { message: 'PORT must be a number' }),
+
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string(),
+
   COOKIE_SECRET: z.string(),
 
   CLERK_PUBLISHABLE_KEY: z.string(),

@@ -1,4 +1,42 @@
 services:
+  backend:
+      build:
+        context: ./backend
+      ports:
+        - "5000:5000"
+      env_file:
+        - ./backend/.env
+      environment:
+        NODE_ENV: production
+        PORT: 5000
+        REDIS_HOST: redis
+        REDIS_PORT: 6379
+        DATABASE_URL: postgresql://postgres:postgres@db:5432/mailbox_db
+        OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+      depends_on:
+        - db
+        - redis
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+  worker:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/mailbox_db
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318/v1/traces
+    depends_on:
+      - db
+      - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "--import", "./dist/instrumentation.js", "./dist/workers/clerk.worker.js"]
+
   db:
     image: postgres:16
     ports:
@@ -9,6 +47,7 @@ services:
       POSTGRES_DB: mailbox_db
     volumes:
       - pgdata:/var/lib/postgresql/data
+
   redis:
     image: redis:7
     ports:
@@ -26,6 +65,37 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  tempo:
+    image: grafana/tempo:latest
+    ports:
+      - "3200:3200"   # Tempo HTTP API
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP  exporter points here
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml
+      - tempodata:/var/tempo
+
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./observability/loki.yaml:/etc/loki/loki.yaml
+      - lokidata:/loki
+
+  promtail:
+    image: grafana/promtail:latest
+    command: ["-config.file=/etc/promtail/promtail.yaml"]
+    volumes:
+      - ./observability/promtail.yaml:/etc/promtail/promtail.yaml
+      - /var/log:/var/log                        # host logs
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro  # docker logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
   grafana:
     image: grafana/grafana:latest
     ports:
@@ -41,4 +111,6 @@ services:
 volumes:
   pgdata:
   redisdata:
+  tempodata:
+  lokidata:
   grafanadata:

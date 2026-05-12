@@ -1,7 +1,8 @@
 import pino from 'pino';
+import { trace } from '@opentelemetry/api';
 import { PinoLoggerOptions } from 'fastify/types/logger.js';
-
 import { env } from './env/env.js';
+
 const isDev = env.NODE_ENV === 'development';
 
 export const loggerConfig: PinoLoggerOptions = {
@@ -23,6 +24,13 @@ export const loggerConfig: PinoLoggerOptions = {
   formatters: {
     level(label) {
       return { level: label };
+    },
+    // Inject traceId + spanId into every log line
+    log(obj) {
+      const span = trace.getActiveSpan();
+      if (!span) return obj;
+      const { traceId, spanId } = span.spanContext();
+      return { ...obj, traceId, spanId };
     },
   },
 
