@@ -1,5 +1,11 @@
 import { prisma } from '../../config/prisma.js';
 import { redis } from '../../config/redis.js';
+import {
+  PROFILE_CACHE_TTL,
+  profileCacheKey,
+  MESSAGES_CACHE_TTL,
+  messagesCacheKey,
+} from '../../utils/redis.js';
 import { createGmailClient } from './gmail.client.js';
 import {
   GmailMessageDetail,
@@ -8,12 +14,6 @@ import {
   GmailProfile,
 } from './gmail.schema.js';
 import { extractMessageBody } from './gmail.utils.js';
-
-const MESSAGES_CACHE_TTL = 60; // seconds
-
-function messagesCacheKey(userId: string, query: GmailMessagesQuery) {
-  return `gmail_messages:${userId}:${query.maxResults ?? 20}:${query.pageToken ?? ''}`;
-}
 
 async function connectGoogleAccount(
   userId: string,
@@ -45,9 +45,14 @@ async function connectGoogleAccount(
       expiryDate: tokens.expiryDate ?? null,
     },
   });
+  await redis.del(profileCacheKey(userId));
 }
 
 async function getProfile(userId: string): Promise<GmailProfile> {
+  const cacheKey = profileCacheKey(userId);
+  const cached = await redis.get(cacheKey);
+  if (cached) return JSON.parse(cached) as GmailProfile;
+
   const gmail = await createGmailClient(userId);
 
   const profile = await gmail.users.getProfile({
@@ -55,7 +60,7 @@ async function getProfile(userId: string): Promise<GmailProfile> {
     fields: 'emailAddress,messagesTotal,threadsTotal,historyId',
   });
 
-  return {
+  const result: GmailProfile = {
     emailAddress: profile.data.emailAddress ?? '',
 
     messagesTotal: profile.data.messagesTotal ?? 0,
@@ -64,6 +69,10 @@ async function getProfile(userId: string): Promise<GmailProfile> {
 
     historyId: profile.data.historyId ?? '',
   };
+
+  await redis.set(cacheKey, JSON.stringify(result), 'EX', PROFILE_CACHE_TTL);
+
+  return result;
 }
 
 async function listMessages(
