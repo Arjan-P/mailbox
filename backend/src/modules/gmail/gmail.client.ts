@@ -25,6 +25,11 @@ export async function createGmailClient(userId: string) {
     refresh_token: account.refreshToken,
   });
 
+  // TODO: This is fire-and-forget — if the process restarts between a token refresh
+  // and the DB write, the new token is lost and future requests will fail with 401.
+  // Wrap in try/catch and await, or use a token-refresh middleware that persists
+  // before the downstream API call proceeds.
+
   oauth2Client.on('tokens', (tokens) => {
     void prisma.googleAccount.update({
       where: {

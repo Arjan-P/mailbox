@@ -23,6 +23,11 @@ async function connectGoogleAccount(
     expiryDate?: Date | null;
   },
 ) {
+  // TODO: Throw (or at minimum warn) when refreshToken is absent on first connect.
+  // Google only issues a refresh token on the first authorization — storing an empty
+  // string silently will cause failures when the access token expires.
+  // Ensure the OAuth flow uses access_type: 'offline' and prompt: 'consent'.
+
   await prisma.googleAccount.upsert({
     where: {
       userId,
@@ -94,6 +99,11 @@ async function listMessages(
   });
 
   const messageIds = list.data.messages ?? [];
+
+  // TODO: This is an N+1 problem — up to 100 individual Gmail API calls are made in
+  // parallel when maxResults is at its maximum. Use Gmail's batch request API or chunk
+  // the Promise.all into groups (e.g. 10 at a time) to avoid rate-limit errors (429s).
+  // See: https://developers.google.com/gmail/api/guides/batch
 
   const messages = await Promise.all(
     messageIds.map(async (message) => {

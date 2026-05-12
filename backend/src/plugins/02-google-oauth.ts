@@ -12,7 +12,11 @@ export default fp(async (fastify) => {
       'email',
       'profile',
       'https://www.googleapis.com/auth/gmail.readonly',
-      'https://www.googleapis.com/auth/gmail.send',
+      // TODO: Remove gmail.send scope until a send feature is actually implemented.
+      // Requesting unnecessary permissions increases OAuth consent friction and
+      // violates the principle of least privilege.
+
+      //'https://www.googleapis.com/auth/gmail.send',
     ],
 
     credentials: {
@@ -37,7 +41,10 @@ export default fp(async (fastify) => {
     pkce: 'S256',
 
     cookie: {
-      secure: false, // true in production HTTPS
+      // TODO: Drive this from env rather than hardcoding — use env.NODE_ENV === 'production'.
+      // Hardcoding false means this will ship insecure to production if the comment is missed.
+
+      secure: false,
       sameSite: 'lax',
     },
     redirectStateCookieName: 'google-oauth2-redirect-state',
