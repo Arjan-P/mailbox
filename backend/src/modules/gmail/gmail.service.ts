@@ -6,6 +6,8 @@ import {
   profileCacheKey,
   MESSAGES_CACHE_TTL,
   messagesCacheKey,
+  MESSAGE_CACHE_TTL,
+  messageCacheKey,
 } from '../../utils/redis.js';
 import { createGmailClient } from './gmail.client.js';
 import {
@@ -158,6 +160,10 @@ async function getMessage(
   id: string,
   log: FastifyBaseLogger,
 ): Promise<GmailMessageDetail> {
+  const cacheKey = messageCacheKey(userId, id);
+  const cached = await redis.get(cacheKey);
+
+  if (cached) return JSON.parse(cached) as GmailMessageDetail;
   const gmail = await createGmailClient(userId, log);
 
   const message = await gmail.users.messages.get({
@@ -174,7 +180,7 @@ async function getMessage(
     headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ??
     '';
 
-  return {
+  const result: GmailMessageDetail = {
     id: message.data.id ?? '',
     threadId: message.data.threadId ?? '',
     subject: getHeader('Subject'),
@@ -195,6 +201,10 @@ async function getMessage(
     unread: message.data.labelIds?.includes('UNREAD') ?? false,
     labels: message.data.labelIds ?? [],
   };
+
+  await redis.set(cacheKey, JSON.stringify(result), 'EX', MESSAGE_CACHE_TTL);
+
+  return result;
 }
 
 export const GmailService = {
