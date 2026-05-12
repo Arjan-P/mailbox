@@ -41,10 +41,7 @@ export default fp(async (fastify) => {
     pkce: 'S256',
 
     cookie: {
-      // TODO: Drive this from env rather than hardcoding — use env.NODE_ENV === 'production'.
-      // Hardcoding false means this will ship insecure to production if the comment is missed.
-
-      secure: false,
+      secure: env.NODE_ENV === 'production',
       sameSite: 'lax',
     },
     redirectStateCookieName: 'google-oauth2-redirect-state',

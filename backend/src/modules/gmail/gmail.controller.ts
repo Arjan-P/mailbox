@@ -6,10 +6,6 @@ import { GmailService } from './gmail.service.js';
 import { GmailMessagesQuery } from './gmail.schema.js';
 import { env } from '../../config/env/env.js';
 
-// TODO: Replace per-controller auth checks with a centralized Fastify preHandler hook
-// or onRequest hook so auth can't accidentally be omitted from a future route.
-// Example: fastify.addHook('onRequest', requireAuth) applied to an authenticated scope.
-
 async function handleCallback(req: FastifyRequest, reply: FastifyReply) {
   const token =
     await req.server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(req);
@@ -20,7 +16,6 @@ async function handleCallback(req: FastifyRequest, reply: FastifyReply) {
     throw new Error('Missing access token');
   }
 
-  //Use `getAuth()` to access `isAuthenticated` and the user's ID
   const { isAuthenticated, userId } = getAuth(req);
 
   if (!isAuthenticated) {
