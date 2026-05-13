@@ -29,7 +29,7 @@ export const gmailMailItemSchema = z.object({
 
   snippet: z.string(),
 
-  date: z.string(),
+  date: z.string().nullable(),
 
   unread: z.boolean(),
 
@@ -71,7 +71,7 @@ export const gmailMessageDetailSchema = z.object({
 
   body: z.string(),
 
-  date: z.string(),
+  date: z.string().nullable(),
 
   unread: z.boolean(),
 
