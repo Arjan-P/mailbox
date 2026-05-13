@@ -1,3 +1,8 @@
+import type {
+  ErrorCode,
+  ErrorResponse,
+} from '../modules/common/response.schema.js';
+
 export function ok<T>(data: T, message?: string) {
   return {
     success: true as const,
@@ -6,7 +11,11 @@ export function ok<T>(data: T, message?: string) {
   };
 }
 
-export function fail(code: string, message: string, details?: unknown) {
+export function fail(
+  code: ErrorCode,
+  message: string,
+  details?: unknown,
+): ErrorResponse {
   return {
     success: false as const,
     error: {

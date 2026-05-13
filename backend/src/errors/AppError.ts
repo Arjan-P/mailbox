@@ -1,12 +1,14 @@
+import { ErrorCode } from '../modules/common/response.schema.js';
+
 export class AppError extends Error {
   statusCode: number;
-  code: string;
+  code: ErrorCode;
   details?: unknown;
 
   constructor(
     message: string,
     statusCode = 500,
-    code = 'INTERNAL_ERROR',
+    code: ErrorCode = 'INTERNAL_SERVER_ERROR',
     details?: unknown,
   ) {
     super(message);

@@ -13,7 +13,7 @@ async function handleCallback(req: FastifyRequest, reply: FastifyReply) {
   const accessToken = token.token.access_token;
 
   if (!accessToken) {
-    throw new Error('Missing access token');
+    throw new AuthenticationError('Missing access token');
   }
 
   const { isAuthenticated, userId } = getAuth(req);
