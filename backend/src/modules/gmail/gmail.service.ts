@@ -17,6 +17,9 @@ import {
   GmailProfile,
 } from './gmail.schema.js';
 import { extractMessageBody } from './gmail.utils.js';
+import { chunk } from '../../utils/chunk.js';
+
+// TODO: add manual instrumentation for cache hit/miss, listMessages
 
 async function connectGoogleAccount(
   userId: string,
@@ -105,44 +108,43 @@ async function listMessages(
     fields: 'messages(id),nextPageToken,resultSizeEstimate',
   });
 
-  const messageIds = list.data.messages ?? [];
+  const messageIds = (list.data.messages ?? []).filter((m) => m.id != null);
 
-  // TODO: This is an N+1 problem — up to 100 individual Gmail API calls are made in
-  // parallel when maxResults is at its maximum. Use Gmail's batch request API or chunk
-  // the Promise.all into groups (e.g. 10 at a time) to avoid rate-limit errors (429s).
-  // See: https://developers.google.com/gmail/api/guides/batch
+  const CHUNK_SIZE = 10;
+  const messages: GmailMessages['messages'] = [];
 
-  const messages = await Promise.all(
-    messageIds.map(async (message) => {
-      const full = await gmail.users.messages.get({
-        userId: 'me',
-        id: message.id!,
-        format: 'metadata',
-        metadataHeaders: ['From', 'Subject'],
-        // internalDate and labelIds aren't in the metadata payload headers,
-        // they're top-level fields — include them explicitly
-        fields: 'id,threadId,snippet,internalDate,labelIds,payload/headers',
-      });
+  for (const batch of chunk(messageIds, CHUNK_SIZE)) {
+    const results = await Promise.all(
+      batch.map(async (message) => {
+        const full = await gmail.users.messages.get({
+          userId: 'me',
+          id: message.id!,
+          format: 'metadata',
+          metadataHeaders: ['From', 'Subject'],
+          fields: 'id,threadId,snippet,internalDate,labelIds,payload/headers',
+        });
 
-      const headers = full.data.payload?.headers ?? [];
-      const getHeader = (name: string) =>
-        headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())
-          ?.value ?? '';
+        const headers = full.data.payload?.headers ?? [];
+        const getHeader = (name: string) =>
+          headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())
+            ?.value ?? '';
 
-      return {
-        id: full.data.id ?? '',
-        threadId: full.data.threadId ?? '',
-        subject: getHeader('Subject'),
-        from: getHeader('From'),
-        snippet: full.data.snippet ?? '',
-        date: full.data.internalDate
-          ? new Date(Number(full.data.internalDate)).toISOString()
-          : new Date().toISOString(),
-        unread: full.data.labelIds?.includes('UNREAD') ?? false,
-        labels: full.data.labelIds ?? [],
-      };
-    }),
-  );
+        return {
+          id: full.data.id ?? '',
+          threadId: full.data.threadId ?? '',
+          subject: getHeader('Subject'),
+          from: getHeader('From'),
+          snippet: full.data.snippet ?? '',
+          date: full.data.internalDate
+            ? new Date(Number(full.data.internalDate)).toISOString()
+            : null,
+          unread: full.data.labelIds?.includes('UNREAD') ?? false,
+          labels: full.data.labelIds ?? [],
+        };
+      }),
+    );
+    messages.push(...results);
+  }
 
   const result: GmailMessages = {
     messages,
