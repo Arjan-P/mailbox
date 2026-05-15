@@ -22,11 +22,15 @@ async function handleCallback(req: FastifyRequest, reply: FastifyReply) {
     throw new AuthenticationError();
   }
 
-  await GmailService.connectGoogleAccount(userId, {
-    accessToken,
-    refreshToken: token.token.refresh_token,
-    expiryDate: token.token.expires_at,
-  });
+  await GmailService.connectGoogleAccount(
+    userId,
+    {
+      accessToken,
+      refreshToken: token.token.refresh_token,
+      expiryDate: token.token.expires_at,
+    },
+    req.log,
+  );
 
   return reply.redirect(`${env.FRONTEND_URL}/dashboard?gmail=connected`);
 }

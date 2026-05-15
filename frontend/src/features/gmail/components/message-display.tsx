@@ -68,6 +68,7 @@ export function MessageDisplay() {
   return (
     <div className="flex h-full flex-col">
       {/* Toolbar */}
+      {/* TODO: add functionality to toolbar buttons */}
       <div className="flex items-center p-2">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" title="Archive">
@@ -224,6 +225,7 @@ export function MessageDisplay() {
         <Separator />
 
         {/* Reply */}
+        {/* TODO: add send mail functionality after implementing /api/gmail/send endpoint in backend */}
         <div className="p-4">
           <form>
             <div className="grid gap-4">

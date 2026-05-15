@@ -28,12 +28,14 @@ async function connectGoogleAccount(
     refreshToken?: string;
     expiryDate?: Date | null;
   },
+  log: FastifyBaseLogger,
 ) {
-  // TODO: Throw (or at minimum warn) when refreshToken is absent on first connect.
-  // Google only issues a refresh token on the first authorization — storing an empty
-  // string silently will cause failures when the access token expires.
-  // Ensure the OAuth flow uses access_type: 'offline' and prompt: 'consent'.
-
+  if (!tokens.refreshToken) {
+    log.warn(
+      { userId },
+      '[gmail] No refresh token on connect — user will need to re-auth when access token expires',
+    );
+  }
   await prisma.googleAccount.upsert({
     where: {
       userId,

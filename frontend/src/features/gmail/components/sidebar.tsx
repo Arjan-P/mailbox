@@ -69,7 +69,7 @@ export function Sidebar({ profile }: SidebarProps) {
 
                   {link.count && (
                     <span className="ml-auto text-xs text-muted-foreground">
-                      {link.count}
+                      {profile.messagesTotal ?? link.count}
                     </span>
                   )}
                 </>
