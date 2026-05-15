@@ -6,9 +6,22 @@ import { GmailService } from './gmail.service.js';
 import { GmailMessagesQuery } from './gmail.schema.js';
 import { env } from '../../config/env/env.js';
 
+async function startAuth(req: FastifyRequest, reply: FastifyReply) {
+  const { isAuthenticated } = getAuth(req);
+
+  if (!isAuthenticated) {
+    throw new AuthenticationError();
+  }
+
+  return req.server.googleOAuth2.generateAuthorizationUri(req, reply);
+}
+
 async function handleCallback(req: FastifyRequest, reply: FastifyReply) {
   const token =
-    await req.server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(req);
+    await req.server.googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(
+      req,
+      reply,
+    );
 
   const accessToken = token.token.access_token;
 
@@ -82,6 +95,7 @@ async function getMessage(
 }
 
 export const GmailController = {
+  startAuth,
   handleCallback,
   getProfile,
   getMessages,

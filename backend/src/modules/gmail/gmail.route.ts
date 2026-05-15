@@ -13,6 +13,18 @@ import { z } from 'zod';
 const gmailRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
   app.get(
+    '/auth',
+    {
+      schema: {
+        response: {
+          302: z.any(),
+          401: errorResponse,
+        },
+      },
+    },
+    GmailController.startAuth,
+  );
+  app.get(
     '/callback',
     {
       schema: {

@@ -12,13 +12,9 @@ export default fp(async (fastify) => {
       'email',
       'profile',
       'https://www.googleapis.com/auth/gmail.readonly',
-      // TODO: Remove gmail.send scope until a send feature is actually implemented.
-      // Requesting unnecessary permissions increases OAuth consent friction and
-      // violates the principle of least privilege.
-
-      //'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify',
     ],
-
     credentials: {
       client: {
         id: env.GOOGLE_CLIENT_ID,
@@ -34,9 +30,11 @@ export default fp(async (fastify) => {
       },
     },
 
-    startRedirectPath: '/api/gmail/auth',
-
     callbackUri: env.GOOGLE_CALLBACK_URL,
+    callbackUriParams: {
+      access_type: 'offline',
+      prompt: 'consent',
+    },
 
     pkce: 'S256',
 
