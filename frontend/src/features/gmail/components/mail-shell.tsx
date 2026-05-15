@@ -14,16 +14,26 @@ import { useGmailStore } from "../store";
 
 import type { GmailMailItem, GmailProfile } from "../types";
 import { cn } from "@/lib/utils";
+import type { ErrorResponse } from "@/types/api";
+import { getErrorMessage } from "@/lib/error-messages";
+import { Button } from "@/components/ui/button";
 
 interface MailShellProps {
   profile: GmailProfile;
 
   messages: GmailMailItem[];
+
+  messagesError: ErrorResponse["error"] | null;
 }
 
 const COLLAPSED_SIZE = 4;
+const GMAIL_AUTH_URL = `${import.meta.env.VITE_BACKEND_URL}/api/gmail/auth`;
 
-export function MailShell({ profile, messages }: MailShellProps) {
+export function MailShell({
+  profile,
+  messages,
+  messagesError,
+}: MailShellProps) {
   const selectedMailbox = useGmailStore((s) => s.selectedMailbox);
 
   const search = useGmailStore((s) => s.search);
@@ -80,7 +90,24 @@ export function MailShell({ profile, messages }: MailShellProps) {
 
           <SearchBar />
 
-          <MessageList messages={filteredMessages} />
+          {messagesError ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-4">
+              <p className="text-center text-sm text-muted-foreground">
+                {getErrorMessage(messagesError.code, messagesError.message)}
+              </p>
+              {(messagesError.code === "AUTHENTICATION_ERROR" ||
+                messagesError.code === "GOOGLE_AUTH_REQUIRED" ||
+                messagesError.code === "GOOGLE_AUTH_EXPIRED") && (
+                <a href={GMAIL_AUTH_URL}>
+                  <Button variant="outline" size="sm">
+                    Reconnect Gmail
+                  </Button>
+                </a>
+              )}
+            </div>
+          ) : (
+            <MessageList messages={filteredMessages} />
+          )}
         </div>
       </ResizablePanel>
 

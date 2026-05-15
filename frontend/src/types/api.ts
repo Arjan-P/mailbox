@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { ERROR_CODES } from "./errors";
 
 export const errorResponse = z.object({
   success: z.literal(false),
   error: z.object({
-    code: z.string(),
+    code: z.enum(ERROR_CODES),
     message: z.string(),
     details: z.any().optional(),
   }),

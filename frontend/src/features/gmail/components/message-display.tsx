@@ -211,7 +211,7 @@ export function MessageDisplay() {
           </div>
 
           <div className="ml-auto text-xs text-muted-foreground">
-            {format(new Date(message.date), "PPpp")}
+            {message.date && format(new Date(message.date), "PPpp")}
           </div>
         </div>
 

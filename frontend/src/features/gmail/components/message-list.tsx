@@ -29,9 +29,10 @@ export function MessageList({ messages }: MessageListProps) {
               <div className="font-medium">{message.from}</div>
 
               <div className="ml-auto text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(message.date), {
-                  addSuffix: true,
-                })}
+                {message.date &&
+                  formatDistanceToNow(new Date(message.date), {
+                    addSuffix: true,
+                  })}
               </div>
             </div>
 
