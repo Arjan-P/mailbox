@@ -13,7 +13,9 @@ async function startAuth(req: FastifyRequest, reply: FastifyReply) {
     throw new AuthenticationError();
   }
 
-  return req.server.googleOAuth2.generateAuthorizationUri(req, reply);
+  const authorizationUri =
+    await req.server.googleOAuth2.generateAuthorizationUri(req, reply);
+  return reply.redirect(authorizationUri);
 }
 
 async function handleCallback(req: FastifyRequest, reply: FastifyReply) {
