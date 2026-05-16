@@ -1,24 +1,34 @@
 import { FastifyBaseLogger } from 'fastify';
 import { prisma } from '../../config/prisma.js';
-import { redis } from '../../config/redis.js';
-import {
-  PROFILE_CACHE_TTL,
-  profileCacheKey,
-  MESSAGES_CACHE_TTL,
-  messagesCacheKey,
-  MESSAGE_CACHE_TTL,
-  messageCacheKey,
-} from '../../utils/redis.js';
+// import { redis } from '../../config/redis.js';
+// import {
+//   PROFILE_CACHE_TTL,
+//   profileCacheKey,
+//   MESSAGES_CACHE_TTL,
+//   messagesCacheKey,
+//   MESSAGE_CACHE_TTL,
+//   messageCacheKey,
+//   invalidateMessagesCache,
+// } from '../../utils/redis.js';
 import { createGmailClient } from './gmail.client.js';
 import {
   GmailMessageDetail,
   GmailMessages,
   GmailMessagesQuery,
   GmailProfile,
+  GmailSendMessage,
+  GmailSentMessage,
 } from './gmail.schema.js';
 import { extractMessageBody } from './gmail.utils.js';
 import { chunk } from '../../utils/chunk.js';
+import { AppError } from '../../errors/AppError.js';
+import {
+  buildReferencesHeader,
+  buildRfc2822Message,
+  extractMessageId,
+} from './gmail.rfc2822.js';
 
+// TODO: redo caching, invalidation
 // TODO: add manual instrumentation for cache hit/miss, listMessages
 
 async function connectGoogleAccount(
@@ -58,17 +68,12 @@ async function connectGoogleAccount(
       expiryDate: tokens.expiryDate ?? null,
     },
   });
-  await redis.del(profileCacheKey(userId));
 }
 
 async function getProfile(
   userId: string,
   log: FastifyBaseLogger,
 ): Promise<GmailProfile> {
-  const cacheKey = profileCacheKey(userId);
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached) as GmailProfile;
-
   const gmail = await createGmailClient(userId, log);
 
   const profile = await gmail.users.getProfile({
@@ -86,8 +91,6 @@ async function getProfile(
     historyId: profile.data.historyId ?? '',
   };
 
-  await redis.set(cacheKey, JSON.stringify(result), 'EX', PROFILE_CACHE_TTL);
-
   return result;
 }
 
@@ -96,10 +99,6 @@ async function listMessages(
   query: GmailMessagesQuery,
   log: FastifyBaseLogger,
 ): Promise<GmailMessages> {
-  const cacheKey = messagesCacheKey(userId, query);
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached) as GmailMessages;
-
   const gmail = await createGmailClient(userId, log);
 
   const list = await gmail.users.messages.list({
@@ -154,8 +153,6 @@ async function listMessages(
     resultSizeEstimate: list.data.resultSizeEstimate ?? undefined,
   };
 
-  await redis.set(cacheKey, JSON.stringify(result), 'EX', MESSAGES_CACHE_TTL);
-
   return result;
 }
 
@@ -164,10 +161,6 @@ async function getMessage(
   id: string,
   log: FastifyBaseLogger,
 ): Promise<GmailMessageDetail> {
-  const cacheKey = messageCacheKey(userId, id);
-  const cached = await redis.get(cacheKey);
-
-  if (cached) return JSON.parse(cached) as GmailMessageDetail;
   const gmail = await createGmailClient(userId, log);
 
   const message = await gmail.users.messages.get({
@@ -206,9 +199,145 @@ async function getMessage(
     labels: message.data.labelIds ?? [],
   };
 
-  await redis.set(cacheKey, JSON.stringify(result), 'EX', MESSAGE_CACHE_TTL);
-
   return result;
+}
+
+async function sendMessage(
+  userId: string,
+  payLoad: GmailSendMessage,
+  log: FastifyBaseLogger,
+): Promise<GmailSentMessage> {
+  const gmail = await createGmailClient(userId, log);
+
+  const profile = await gmail.users.getProfile({
+    userId: 'me',
+    fields: 'emailAddress',
+  });
+
+  const from = profile.data.emailAddress;
+
+  if (!from) {
+    throw new AppError(
+      'Could not resolve sender email address',
+      500,
+      'INTERNAL_SERVER_ERROR',
+    );
+  }
+
+  const raw = buildRfc2822Message({
+    from,
+    to: payLoad.to,
+    subject: payLoad.subject,
+    body: payLoad.body,
+    cc: payLoad.cc,
+  });
+
+  const res = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: { raw },
+  });
+
+  log.info({ userId, messageId: res.data.id }, '[gmail] Message sent');
+
+  // A new sent message doesn't invalidate the inbox list, but we do
+  // invalidate the messages cache in case the user is viewing Sent.
+
+  return {
+    id: res.data.id ?? '',
+    threadId: res.data.threadId ?? '',
+    labelIds: res.data.labelIds ?? [],
+  };
+}
+
+async function replyToMessage(
+  userId: string,
+  messageId: string,
+  body: string,
+  log: FastifyBaseLogger,
+): Promise<GmailSentMessage> {
+  const gmail = await createGmailClient(userId, log);
+
+  const original = await gmail.users.messages.get({
+    userId: 'me',
+    id: messageId,
+    format: 'metadata',
+    metadataHeaders: ['From', 'To', 'Subject', 'Message-ID', 'References'],
+    fields: 'id,threadId,payload/headers',
+  });
+
+  const headers = original.data.payload?.headers ?? [];
+  const getHeader = (name: string) =>
+    headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value ??
+    '';
+
+  const originalFrom = getHeader('From');
+  const originalSubject = getHeader('Subject');
+  const originalMessageId = extractMessageId(headers);
+  const threadId = original.data.threadId;
+
+  if (!originalFrom) {
+    throw new AppError(
+      'Original message is missing From header — cannot reply',
+      500,
+      'INTERNAL_SERVER_ERROR',
+    );
+  }
+
+  if (!originalMessageId) {
+    throw new AppError(
+      'Original message is missing Message-ID header — cannot thread reply correctly',
+      500,
+      'INTERNAL_SERVER_ERROR',
+    );
+  }
+
+  // Resolve the sender's email address
+  const profile = await gmail.users.getProfile({
+    userId: 'me',
+    fields: 'emailAddress',
+  });
+
+  const from = profile.data.emailAddress;
+
+  if (!from) {
+    throw new AppError(
+      'Could not resolve sender email address',
+      500,
+      'INTERNAL_SERVER_ERROR',
+    );
+  }
+
+  const reSubject = /^re:/i.test(originalSubject)
+    ? originalSubject
+    : `Re: ${originalSubject}`;
+
+  const raw = buildRfc2822Message({
+    from,
+    to: [originalFrom],
+    subject: reSubject,
+    body,
+    inReplyTo: originalMessageId,
+    references: buildReferencesHeader(headers, originalMessageId),
+  });
+
+  const res = await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: {
+      raw,
+      threadId: threadId ?? undefined,
+    },
+  });
+
+  log.info({ userId, messageId: res.data.id, threadId }, '[gmail] Reply sent');
+
+  // Invalidate the individual message cache so the reply appears immediately
+  // if the user refreshes, and invalidate the messages list cache.
+
+  return {
+    id: res.data.id ?? '',
+    threadId: res.data.threadId ?? '',
+    labelIds: res.data.labelIds ?? [],
+  };
 }
 
 export const GmailService = {
@@ -216,4 +345,6 @@ export const GmailService = {
   getProfile,
   listMessages,
   getMessage,
+  sendMessage,
+  replyToMessage,
 };

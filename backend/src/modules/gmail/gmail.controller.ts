@@ -3,7 +3,11 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { ok } from '../../utils/response.js';
 import { AuthenticationError } from '../../errors/AuthenticationError.js';
 import { GmailService } from './gmail.service.js';
-import { GmailMessagesQuery } from './gmail.schema.js';
+import {
+  GmailMessagesQuery,
+  GmailReplyMessage,
+  GmailSendMessage,
+} from './gmail.schema.js';
 import { env } from '../../config/env/env.js';
 
 async function startAuth(req: FastifyRequest, reply: FastifyReply) {
@@ -96,10 +100,39 @@ async function getMessage(
   return ok(message);
 }
 
+async function sendMessage(req: FastifyRequest<{ Body: GmailSendMessage }>) {
+  const { userId, isAuthenticated } = getAuth(req);
+
+  if (!isAuthenticated) throw new AuthenticationError();
+
+  const sent = await GmailService.sendMessage(userId, req.body, req.log);
+
+  return ok(sent, 'Message sent');
+}
+
+async function replyToMessage(
+  req: FastifyRequest<{ Params: { id: string }; Body: GmailReplyMessage }>,
+) {
+  const { userId, isAuthenticated } = getAuth(req);
+
+  if (!isAuthenticated) throw new AuthenticationError();
+
+  const sent = await GmailService.replyToMessage(
+    userId,
+    req.params.id,
+    req.body.body,
+    req.log,
+  );
+
+  return ok(sent, 'Reply sent');
+}
+
 export const GmailController = {
   startAuth,
   handleCallback,
   getProfile,
   getMessages,
   getMessage,
+  sendMessage,
+  replyToMessage,
 };

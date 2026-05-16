@@ -7,11 +7,15 @@ import {
   gmailMessagesQuerySchema,
   gmailMessagesSchema,
   gmailProfileSchema,
+  gmailReplyMessageSchema,
+  gmailSendMessageSchema,
+  gmailSentMessageSchema,
 } from './gmail.schema.js';
 import { z } from 'zod';
 
 const gmailRoutes: FastifyPluginAsync = async (fastify) => {
   const app = fastify.withTypeProvider<ZodTypeProvider>();
+
   app.get(
     '/auth',
     {
@@ -24,6 +28,7 @@ const gmailRoutes: FastifyPluginAsync = async (fastify) => {
     },
     GmailController.startAuth,
   );
+
   app.get(
     '/callback',
     {
@@ -37,6 +42,7 @@ const gmailRoutes: FastifyPluginAsync = async (fastify) => {
     },
     GmailController.handleCallback,
   );
+
   app.get(
     '/profile',
     {
@@ -50,6 +56,7 @@ const gmailRoutes: FastifyPluginAsync = async (fastify) => {
     },
     GmailController.getProfile,
   );
+
   app.get(
     '/messages',
     {
@@ -64,6 +71,7 @@ const gmailRoutes: FastifyPluginAsync = async (fastify) => {
     },
     GmailController.getMessages,
   );
+
   app.get(
     '/messages/:id',
     {
@@ -80,6 +88,39 @@ const gmailRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     GmailController.getMessage,
+  );
+
+  app.post(
+    '/send',
+    {
+      schema: {
+        body: gmailSendMessageSchema,
+        response: {
+          200: successResponse(gmailSentMessageSchema),
+          400: errorResponse,
+          401: errorResponse,
+          500: errorResponse,
+        },
+      },
+    },
+    GmailController.sendMessage,
+  );
+
+  app.post(
+    '/messages/:id/reply',
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        body: gmailReplyMessageSchema,
+        response: {
+          200: successResponse(gmailSentMessageSchema),
+          400: errorResponse,
+          401: errorResponse,
+          500: errorResponse,
+        },
+      },
+    },
+    GmailController.replyToMessage,
   );
 };
 
