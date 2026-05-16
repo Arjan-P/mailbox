@@ -5,6 +5,7 @@ import { AuthenticationError } from '../../errors/AuthenticationError.js';
 import { GmailService } from './gmail.service.js';
 import {
   GmailMessagesQuery,
+  GmailModifyMessage,
   GmailReplyMessage,
   GmailSendMessage,
 } from './gmail.schema.js';
@@ -127,6 +128,40 @@ async function replyToMessage(
   return ok(sent, 'Reply sent');
 }
 
+async function modifyMessage(
+  req: FastifyRequest<{ Params: { id: string }; Body: GmailModifyMessage }>,
+) {
+  const { userId, isAuthenticated } = getAuth(req);
+
+  if (!isAuthenticated) throw new AuthenticationError();
+
+  return ok(
+    await GmailService.modifyMessage(userId, req.params.id, req.body, req.log),
+  );
+}
+
+async function trashMessage(req: FastifyRequest<{ Params: { id: string } }>) {
+  const { userId, isAuthenticated } = getAuth(req);
+
+  if (!isAuthenticated) throw new AuthenticationError();
+
+  return ok(
+    await GmailService.trashMessage(userId, req.params.id, req.log),
+    'Message moved to trash',
+  );
+}
+
+async function deleteMessage(req: FastifyRequest<{ Params: { id: string } }>) {
+  const { userId, isAuthenticated } = getAuth(req);
+
+  if (!isAuthenticated) throw new AuthenticationError();
+
+  return ok(
+    await GmailService.deleteMessage(userId, req.params.id, req.log),
+    'Message permanently deleted',
+  );
+}
+
 export const GmailController = {
   startAuth,
   handleCallback,
@@ -135,4 +170,7 @@ export const GmailController = {
   getMessage,
   sendMessage,
   replyToMessage,
+  modifyMessage,
+  trashMessage,
+  deleteMessage,
 };

@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+export const GMAIL_SYSTEM_LABELS = {
+  INBOX: 'INBOX',
+  UNREAD: 'UNREAD',
+  STARRED: 'STARRED',
+  IMPORTANT: 'IMPORTANT',
+  SENT: 'SENT',
+  TRASH: 'TRASH',
+  SPAM: 'SPAM',
+} as const;
+
 /**
  * Gmail profile
  */
@@ -131,3 +141,51 @@ export const gmailSentMessageSchema = z.object({
 });
 
 export type GmailSentMessage = z.infer<typeof gmailSentMessageSchema>;
+
+/**
+ * Generic label modification.
+ * At least one of addLabelIds or removeLabelIds must be non-empty.
+ *
+ * Intended frontend mappings:
+ *   archive     → removeLabelIds: ['INBOX']
+ *   mark unread → addLabelIds:    ['UNREAD']
+ *   mark read   → removeLabelIds: ['UNREAD']
+ *   star        → addLabelIds:    ['STARRED']
+ *   unstar      → removeLabelIds: ['STARRED']
+ */
+export const gmailModifyMessageSchema = z
+  .object({
+    addLabelIds: z.array(z.string()).optional(),
+    removeLabelIds: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) =>
+      (data.addLabelIds && data.addLabelIds.length > 0) ||
+      (data.removeLabelIds && data.removeLabelIds.length > 0),
+    {
+      message: 'At least one of addLabelIds or removeLabelIds must be provided',
+    },
+  );
+
+export type GmailModifyMessage = z.infer<typeof gmailModifyMessageSchema>;
+
+/**
+ * Response after a modify — returns the updated label set so the client
+ * can reconcile local state without a follow-up fetch.
+ */
+export const gmailModifiedMessageSchema = z.object({
+  id: z.string(),
+  labelIds: z.array(z.string()),
+});
+
+export type GmailModifiedMessage = z.infer<typeof gmailModifiedMessageSchema>;
+
+/**
+ * Shared response for trash / delete — just the id so the client
+ * knows which message to remove from its local list.
+ */
+export const gmailMessageActionSchema = z.object({
+  id: z.string(),
+});
+
+export type GmailMessageAction = z.infer<typeof gmailMessageActionSchema>;

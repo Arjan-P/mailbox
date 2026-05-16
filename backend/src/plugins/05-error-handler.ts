@@ -47,6 +47,11 @@ export default fp(async (fastify) => {
             ),
           );
       }
+
+      if (status === 404) {
+        return reply.status(404).send(fail('NOT_FOUND', 'Message not found'));
+      }
+
       if (status === 429) {
         return reply
           .status(429)

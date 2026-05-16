@@ -3,9 +3,12 @@ import { ZodTypeProvider } from '@fastify/type-provider-zod';
 import { GmailController } from './gmail.controller.js';
 import { errorResponse, successResponse } from '../common/response.schema.js';
 import {
+  gmailMessageActionSchema,
   gmailMessageDetailSchema,
   gmailMessagesQuerySchema,
   gmailMessagesSchema,
+  gmailModifiedMessageSchema,
+  gmailModifyMessageSchema,
   gmailProfileSchema,
   gmailReplyMessageSchema,
   gmailSendMessageSchema,
@@ -121,6 +124,56 @@ const gmailRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     GmailController.replyToMessage,
+  );
+
+  app.post(
+    '/messages/:id/modify',
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        body: gmailModifyMessageSchema,
+        response: {
+          200: successResponse(gmailModifiedMessageSchema),
+          400: errorResponse,
+          401: errorResponse,
+          404: errorResponse,
+          500: errorResponse,
+        },
+      },
+    },
+    GmailController.modifyMessage,
+  );
+
+  app.post(
+    '/messages/:id/trash',
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: successResponse(gmailMessageActionSchema),
+          401: errorResponse,
+          404: errorResponse,
+          500: errorResponse,
+        },
+      },
+    },
+    GmailController.trashMessage,
+  );
+
+  app.delete(
+    '/messages/:id',
+    {
+      schema: {
+        params: z.object({ id: z.string() }),
+        response: {
+          200: successResponse(gmailMessageActionSchema),
+          401: errorResponse,
+          404: errorResponse,
+          500: errorResponse,
+        },
+      },
+    },
+    GmailController.deleteMessage,
   );
 };
 

@@ -12,9 +12,12 @@ import { prisma } from '../../config/prisma.js';
 // } from '../../utils/redis.js';
 import { createGmailClient } from './gmail.client.js';
 import {
+  GmailMessageAction,
   GmailMessageDetail,
   GmailMessages,
   GmailMessagesQuery,
+  GmailModifiedMessage,
+  GmailModifyMessage,
   GmailProfile,
   GmailSendMessage,
   GmailSentMessage,
@@ -22,6 +25,7 @@ import {
 import { extractMessageBody } from './gmail.utils.js';
 import { chunk } from '../../utils/chunk.js';
 import { AppError } from '../../errors/AppError.js';
+import { NotFoundError } from '../../errors/NotFoundError.js';
 import {
   buildReferencesHeader,
   buildRfc2822Message,
@@ -68,6 +72,7 @@ async function connectGoogleAccount(
       expiryDate: tokens.expiryDate ?? null,
     },
   });
+  // invalidate profile cache
 }
 
 async function getProfile(
@@ -340,6 +345,102 @@ async function replyToMessage(
   };
 }
 
+async function modifyMessage(
+  userId: string,
+  messageId: string,
+  payload: GmailModifyMessage,
+  log: FastifyBaseLogger,
+): Promise<GmailModifiedMessage> {
+  const gmail = await createGmailClient(userId, log);
+
+  const res = await gmail.users.messages.modify({
+    userId: 'me',
+    id: messageId,
+    requestBody: {
+      addLabelIds: payload.addLabelIds ?? [],
+      removeLabelIds: payload.removeLabelIds ?? [],
+    },
+  });
+
+  if (!res.data.id) {
+    throw new NotFoundError(`Message ${messageId} not found`);
+  }
+
+  log.info(
+    {
+      userId,
+      messageId,
+      addLabelIds: payload.addLabelIds,
+      removeLabelIds: payload.removeLabelIds,
+    },
+    '[gmail] Message labels modified',
+  );
+
+  return {
+    id: res.data.id,
+    labelIds: res.data.labelIds ?? [],
+  };
+}
+
+/**
+ * Moves a message to Trash.
+ *
+ * Uses gmail.users.messages.trash rather than modify + TRASH label.
+ * The dedicated trash endpoint is preferred because:
+ *  1. It adds TRASH and removes INBOX atomically on Google's side.
+ *  2. It correctly handles messages already in TRASH (idempotent).
+ *  3. It's the semantically correct operation — modify is for label tweaks.
+ *
+ * Trashed messages are permanently deleted by Google after 30 days.
+ * To restore, call modify with addLabelIds: ['INBOX'], removeLabelIds: ['TRASH'].
+ */
+async function trashMessage(
+  userId: string,
+  messageId: string,
+  log: FastifyBaseLogger,
+): Promise<GmailMessageAction> {
+  const gmail = await createGmailClient(userId, log);
+
+  const res = await gmail.users.messages.trash({
+    userId: 'me',
+    id: messageId,
+  });
+
+  if (!res.data.id) {
+    throw new NotFoundError(`Message ${messageId} not found`);
+  }
+
+  log.info({ userId, messageId }, '[gmail] Message trashed');
+
+  return { id: res.data.id };
+}
+
+/**
+ * Permanently deletes a message.
+ *
+ * This is irreversible — the message is gone immediately, not moved to Trash.
+ */
+async function deleteMessage(
+  userId: string,
+  messageId: string,
+  log: FastifyBaseLogger,
+): Promise<GmailMessageAction> {
+  const gmail = await createGmailClient(userId, log);
+
+  // gmail.users.messages.delete returns an empty 204 response on success.
+  // If the message doesn't exist, Google returns a 404 GaxiosError which
+  // the global error handler maps to GOOGLE_API_ERROR. We don't need to
+  // explicitly check the response body.
+  await gmail.users.messages.delete({
+    userId: 'me',
+    id: messageId,
+  });
+
+  log.info({ userId, messageId }, '[gmail] Message permanently deleted');
+
+  return { id: messageId };
+}
+
 export const GmailService = {
   connectGoogleAccount,
   getProfile,
@@ -347,4 +448,7 @@ export const GmailService = {
   getMessage,
   sendMessage,
   replyToMessage,
+  modifyMessage,
+  trashMessage,
+  deleteMessage,
 };
