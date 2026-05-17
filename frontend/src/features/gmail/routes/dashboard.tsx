@@ -25,7 +25,7 @@ export function GmailDashboardRoute() {
   }
 
   if (!profile.data) {
-    return;
+    return null;
   }
 
   return (

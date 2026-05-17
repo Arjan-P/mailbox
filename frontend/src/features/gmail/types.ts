@@ -90,3 +90,91 @@ export const gmailMessagesQuerySchema = z.object({
 });
 
 export type GmailMessagesQuery = z.infer<typeof gmailMessagesQuerySchema>;
+
+/**
+ * Send new message request
+ */
+export const gmailSendMessageSchema = z.object({
+  to: z
+    .array(z.email({ message: "Each recipient must be a valid email" }))
+    .min(1, { message: "At least one recipient is required" }),
+
+  subject: z.string().min(1, { message: "Subject is required" }).max(998, {
+    message: "Subject exceeds RFC 2822 line length limit",
+  }),
+
+  body: z.string().min(1, { message: "Body is required" }),
+
+  cc: z
+    .array(z.email({ message: "Each CC address must be a valid email" }))
+    .optional(),
+});
+
+export type GmailSendMessage = z.infer<typeof gmailSendMessageSchema>;
+
+/**
+ * Generic label modification.
+ * At least one of addLabelIds or removeLabelIds must be non-empty.
+ *
+ * Intended frontend mappings:
+ *   archive     → removeLabelIds: ['INBOX']
+ *   mark unread → addLabelIds:    ['UNREAD']
+ *   mark read   → removeLabelIds: ['UNREAD']
+ *   star        → addLabelIds:    ['STARRED']
+ *   unstar      → removeLabelIds: ['STARRED']
+ */
+
+export const gmailModifyMessageSchema = z
+  .object({
+    addLabelIds: z.array(z.string()).optional(),
+    removeLabelIds: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) =>
+      (data.addLabelIds && data.addLabelIds.length > 0) ||
+      (data.removeLabelIds && data.removeLabelIds.length > 0),
+    {
+      message: "At least one of addLabelIds or removeLabelIds must be provided",
+    },
+  );
+
+export type GmailModifyMessage = z.infer<typeof gmailModifyMessageSchema>;
+
+/**
+ * Reply to message request
+ */
+export const gmailReplyMessageSchema = z.object({
+  body: z.string().min(1, { message: "Reply body is required" }),
+});
+
+export type GmailReplyMessage = z.infer<typeof gmailReplyMessageSchema>;
+
+/**
+ * Sent message response
+ */
+export const gmailSentMessageSchema = z.object({
+  id: z.string(),
+  threadId: z.string(),
+  labelIds: z.array(z.string()),
+});
+
+export type GmailSentMessage = z.infer<typeof gmailSentMessageSchema>;
+
+/**
+ * Response after a modify
+ */
+export const gmailModifiedMessageSchema = z.object({
+  id: z.string(),
+  labelIds: z.array(z.string()),
+});
+
+export type GmailModifiedMessage = z.infer<typeof gmailModifiedMessageSchema>;
+
+/**
+ * Shared response for trash / delete
+ */
+export const gmailMessageActionSchema = z.object({
+  id: z.string(),
+});
+
+export type GmailMessageAction = z.infer<typeof gmailMessageActionSchema>;

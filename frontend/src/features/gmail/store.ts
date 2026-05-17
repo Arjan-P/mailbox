@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type MailboxType = "inbox" | "sent" | "trash" | "unread";
+export type MailboxType = "inbox" | "sent" | "trash" | "unread";
 
 interface GmailUiState {
   selectedMessageId: string | null;

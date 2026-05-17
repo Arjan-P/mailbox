@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { addDays, addHours, format, nextSaturday } from "date-fns";
 
@@ -7,13 +7,19 @@ import {
   ArchiveX,
   Clock,
   Forward,
+  Loader2,
   MoreVertical,
   Reply,
   ReplyAll,
   Trash2,
 } from "lucide-react";
 
-import { useMessage } from "../hooks";
+import {
+  useMessage,
+  useModifyMessage,
+  useReplyMessage,
+  useTrashMessage,
+} from "../hooks";
 import { useGmailStore } from "../store";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -35,12 +41,33 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
+const MESSAGES_QUERY = { maxResults: 25 };
+
 export function MessageDisplay() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [replyBody, setReplyBody] = useState("");
 
   const selectedMessageId = useGmailStore((s) => s.selectedMessageId);
-
   const { data: message, isLoading } = useMessage(selectedMessageId);
+
+  const modify = useModifyMessage(MESSAGES_QUERY);
+  const trash = useTrashMessage(MESSAGES_QUERY);
+  const reply = useReplyMessage(selectedMessageId ?? "");
+  const markedReadRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (
+      message?.unread &&
+      message.id &&
+      !markedReadRef.current.has(message.id)
+    ) {
+      markedReadRef.current.add(message.id);
+      modify.mutate({
+        id: message.id,
+        payload: { removeLabelIds: ["UNREAD"] },
+      });
+    }
+  }, [message?.id, message?.unread]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!selectedMessageId) {
     return (
@@ -64,6 +91,49 @@ export function MessageDisplay() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  function handleArchive() {
+    modify.mutate({
+      id: message!.id,
+      payload: { removeLabelIds: ["INBOX"] },
+    });
+  }
+
+  function handleJunk() {
+    modify.mutate({
+      id: message!.id,
+      payload: { addLabelIds: ["SPAM"], removeLabelIds: ["INBOX"] },
+    });
+  }
+
+  function handleTrash() {
+    trash.mutate(message!.id);
+  }
+
+  function handleMarkUnread() {
+    // Remove from the "already marked" set so it gets marked read again next open
+    markedReadRef.current.delete(message!.id);
+    modify.mutate({
+      id: message!.id,
+      payload: { addLabelIds: ["UNREAD"] },
+    });
+  }
+
+  function handleStar() {
+    const isStarred = message!.labels.includes("STARRED");
+    modify.mutate({
+      id: message!.id,
+      payload: isStarred
+        ? { removeLabelIds: ["STARRED"] }
+        : { addLabelIds: ["STARRED"] },
+    });
+  }
+
+  function handleReply() {
+    if (!replyBody.trim()) return;
+    reply.mutate({ body: replyBody }, { onSuccess: () => setReplyBody("") });
+  }
+
+  const isActioning = modify.isPending || trash.isPending;
 
   return (
     <div className="flex h-full flex-col">
@@ -71,12 +141,24 @@ export function MessageDisplay() {
       {/* TODO: add functionality to toolbar buttons */}
       <div className="flex items-center p-2">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" title="Archive">
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Archive"
+            disabled={isActioning}
+            onClick={handleArchive}
+          >
             <Archive className="h-4 w-4" />
             <span className="sr-only">Archive</span>
           </Button>
 
-          <Button variant="ghost" size="icon" title="Move to junk">
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Move to junk"
+            disabled={isActioning}
+            onClick={handleJunk}
+          >
             <ArchiveX className="h-4 w-4" />
             <span className="sr-only">Move to junk</span>
           </Button>
@@ -85,6 +167,8 @@ export function MessageDisplay() {
             variant="ghost"
             size="icon"
             title="Move to trash"
+            disabled={isActioning}
+            onClick={handleTrash}
             className="text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
@@ -174,12 +258,15 @@ export function MessageDisplay() {
               <span className="sr-only">More</span>
             </Button>
           </DropdownMenuTrigger>
-
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Mark as unread</DropdownMenuItem>
-            <DropdownMenuItem>Star thread</DropdownMenuItem>
-            <DropdownMenuItem>Add label</DropdownMenuItem>
-            <DropdownMenuItem>Mute thread</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMarkUnread}>
+              Mark as unread
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleStar}>
+              {message.labels.includes("STARRED") ? "Unstar" : "Star thread"}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled>Add label</DropdownMenuItem>
+            <DropdownMenuItem disabled>Mute thread</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -227,32 +314,40 @@ export function MessageDisplay() {
         {/* Reply */}
         {/* TODO: add send mail functionality after implementing /api/gmail/send endpoint in backend */}
         <div className="p-4">
-          <form>
-            <div className="grid gap-4">
-              <Textarea
-                className="min-h-32 p-4"
-                placeholder={`Reply to ${message.from}...`}
-              />
-
-              <div className="flex items-center">
-                <Label
-                  htmlFor="mute"
-                  className="flex items-center gap-2 text-xs font-normal"
-                >
-                  <Switch id="mute" aria-label="Mute thread" />
-                  Mute this thread
-                </Label>
-
-                <Button
-                  size="sm"
-                  className="ml-auto"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  Send
-                </Button>
-              </div>
+          <div className="grid gap-4">
+            <Textarea
+              className="min-h-32 p-4"
+              placeholder={`Reply to ${message.from}...`}
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              disabled={reply.isPending}
+            />
+            {reply.isError && (
+              <p className="text-xs text-destructive">
+                Failed to send reply. Please try again.
+              </p>
+            )}
+            <div className="flex items-center">
+              <Label
+                htmlFor="mute"
+                className="flex items-center gap-2 text-xs font-normal"
+              >
+                <Switch id="mute" aria-label="Mute thread" />
+                Mute this thread
+              </Label>
+              <Button
+                size="sm"
+                className="ml-auto"
+                disabled={reply.isPending || !replyBody.trim()}
+                onClick={handleReply}
+              >
+                {reply.isPending ? (
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                ) : null}
+                Send
+              </Button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
